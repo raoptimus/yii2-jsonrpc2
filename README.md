@@ -23,19 +23,31 @@ Configuration
 return [
     //....
     'components' => 
-		'jsonrpc' => [
-			'class' => raoptimus\jsonrpc2\Connection::class,
-			'hostname' => 'localhost',
-			'port' => 8666,
-		],
+        'jsonrpc' => [
+            'class' => raoptimus\jsonrpc2\Connection::class,
+            'hostname' => 'localhost',
+            'port' => 8666,
+        ],
+];
+```
+
+```php
+return [
+    //....
+    'components' => 
+        'jsonrpc' => [
+            'class' => raoptimus\jsonrpc2\Connection::class,
+            'unixSocket' => '/tmp/jsonrpc2.sock',
+            'spec' => raoptimus\jsonrpc2\Connection::SPEC_2_0,
+        ],
 ];
 ```
 
 Use connection
 
 ```php
-$db = \Yii::$app->get('jsonrpc');
+$rpc = \Yii::$app->get('jsonrpc');
 $method = "SomeMethodName";
-$request = "SomeEnterParams";
-$result = $db->sendRequest($method, [$request]);
+$param = "SomeEnterParam";
+$result = $rpc->sendRequest($method, [$param]);
 ```

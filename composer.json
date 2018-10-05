@@ -26,19 +26,19 @@
     "minimum-stability": "dev",
     "require": {
         "php": ">=7.1.0",
-        "yiisoft/yii2": ">=2.0.14"
+        "yiisoft/yii2": "^2.0.14"
     },
     "require-dev": {
         "phpunit/phpunit": "7.*"
     },
     "autoload": {
         "psr-4": {
-            "raoptimus\\json-rpc2\\": "src/"
+            "raoptimus\\jsonrpc2\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "raoptimus\\json-rpc2\\tests\\": "tests/"
+            "raoptimus\\jsonrpc2\\tests\\": "tests/"
         }
     },
     "repositories": [

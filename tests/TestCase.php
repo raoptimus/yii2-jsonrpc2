@@ -1,10 +1,12 @@
 <?php
 
-namespace raoptimus\validators\tests;
+namespace raoptimus\jsonrpc2\tests;
 
+use PHPUnit\Framework\MockObject\MockObject;
+use raoptimus\jsonrpc2\Socket;
 use Yii;
-use yii\base\InvalidConfigException;
 use yii\console\Application;
+use yii\helpers\Json;
 
 /**
  * This file is part of the raoptimus/yii2-jsonrpc2 library
@@ -21,15 +23,6 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         $this->mockApplication();
     }
 
-    protected function tearDown()
-    {
-        $this->destroyApplication();
-        parent::tearDown();
-    }
-
-    /**
-     * @throws InvalidConfigException
-     */
     protected function mockApplication(): void
     {
         new Application(
@@ -42,8 +35,33 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         );
     }
 
+    protected function tearDown()
+    {
+        $this->destroyApplication();
+        parent::tearDown();
+    }
+
     protected function destroyApplication(): void
     {
         Yii::$app = null;
+    }
+
+    /**
+     * @param array $response
+     *
+     * @return MockObject|Socket
+     */
+    protected function mockSocket(array $response)
+    {
+        return $this->createConfiguredMock(
+            Socket::class,
+            [
+                'readResponse' => Json::encode($response),
+                'writeRequest' => null,
+                'getIsActive' => true,
+                'close' => null,
+                'open' => null,
+            ]
+        );
     }
 }
