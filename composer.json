@@ -1,0 +1,50 @@
+{
+    "name": "raoptimus/yii2-jsonrpc2",
+    "description": "Json-rpc2 protocol for Yii2 Framework",
+    "type": "yii2-extension",
+    "keywords": [
+        "yii2",
+        "yii 2",
+        "yii2-extension",
+        "yii2-jsonrpc2",
+        "yii2 json rpc 2",
+        "yii2 json rpc 2 unix socket",
+        "php"
+    ],
+    "license": "BSD-3-Clause",
+    "authors": [
+        {
+            "name": "Evgeniy Urvantsev",
+            "email": "resmus@gmail.com",
+            "homepage": "https://github.com/raoptimus"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/raoptimus/yii2-jsonrpc2/issues",
+        "source": "https://github.com/raoptimus/yii2-jsonrpc2"
+    },
+    "minimum-stability": "dev",
+    "require": {
+        "php": ">=7.1.0",
+        "yiisoft/yii2": ">=2.0.14"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "7.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "raoptimus\\json-rpc2\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "raoptimus\\json-rpc2\\tests\\": "tests/"
+        }
+    },
+    "repositories": [
+        {
+            "type": "composer",
+            "url": "https://asset-packagist.org"
+        }
+    ]
+}
