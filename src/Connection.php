@@ -5,7 +5,6 @@ namespace raoptimus\jsonrpc2;
 use Yii;
 use yii\base\Component;
 use yii\base\UnknownMethodException;
-use yii\helpers\Json;
 
 /**
  * This file is part of the raoptimus/yii2-jsonrpc2 library
@@ -57,18 +56,10 @@ class Connection extends Component
      * @var Socket
      */
     protected $socket;
-
     /**
-     * Closes the connection when this component is being serialized.
-     *
-     * @return array
+     * @var Request
      */
-    public function __sleep()
-    {
-        $this->close();
-
-        return array_keys(get_object_vars($this));
-    }
+    private $request;
 
     /**
      * Closes the currently active connection.
@@ -77,11 +68,6 @@ class Connection extends Component
     public function close(): void
     {
         $this->socket->close();
-    }
-
-    public function setSocket(Socket $socket): void
-    {
-        $this->socket = $socket;
     }
 
     /**
@@ -105,80 +91,39 @@ class Connection extends Component
         try {
             return parent::__call($method, $params);
         } catch (UnknownMethodException $ex) {
-            return $this->sendRequest($method, $params);
+            $request = $this->createRequest($method, $params);
+            $this->sendRequest($request);
+
+            return $this->readResponse()->result;
         }
+    }
+
+    public function createRequest(string $method, ?array $params = null): Request
+    {
+        return new Request(
+            [
+                'method' => $method,
+                'params' => $params,
+                'jsonrpc' => $this->spec,
+            ]
+        );
     }
 
     /**
      * Sends a JSON-RPC request over plain socket.
      *
-     * @param string $method
-     * @param array $params
-     *
-     * @return mixed jsonrpc response result
+     * @param Request $request
      */
-    protected function sendRequest(string $method, ?array $params = null)
+    public function sendRequest(Request $request): void
     {
-        $request = $this->makeRequest($method, $params);
+        if ($this->request !== null) {
+            throw new Exception('Previous request was not processed');
+        }
+        $this->request = $request;
         $this->open();
 
-        Yii::debug("Sending request to JSON-RPC server: {$method}", __METHOD__);
-        $this->socket->writeRequest(Json::encode($request));
-        $id = $request['id'];
-
-        return $this->processResponse($id);
-    }
-
-    protected function makeRequest(string $method, ?array $params = null): array
-    {
-        if (empty($method)) {
-            throw new Exception('Invalid data to be sent to JSON-RPC server');
-        }
-
-        $id = $this->buildUUID();
-        $request = [
-            'method' => $method,
-            'id' => $id,
-        ];
-
-        switch ($this->spec) {
-            case self::SPEC_2_0:
-                $request['jsonrpc'] = self::SPEC_2_0;
-                if ($params !== null && \count($params) > 0) {
-                    $request['params'] = $params;
-                }
-                break;
-            case self::SPEC_1_0:
-                if ($params !== null && \count($params) > 0) {
-                    if ((bool)\count(array_filter(array_keys($params), '\is_string'))) {
-                        throw new Exception('JSON-RPC 1.0 doesn\'t allow named parameters');
-                    }
-                    $request['params'] = $params;
-                }
-                break;
-            default:
-                throw new Exception('Unknown version JSON-RPC');
-        }
-
-        return $request;
-    }
-
-    /**
-     * @return string A v4 uuid
-     */
-    protected function buildUUID(): string
-    {
-        return sprintf(
-            '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
-            random_int(0, 0xffff),
-            random_int(0, 0xffff), // time_low
-            random_int(0, 0xffff), // time_mid
-            random_int(0, 0x0fff) | 0x4000, // time_hi_and_version
-            random_int(0, 0x3fff) | 0x8000, // clk_seq_hi_res/clk_seq_low
-            random_int(0, 0xffff),
-            random_int(0, 0xffff),
-            random_int(0, 0xffff) // node
-        );
+        Yii::debug('Sending request to JSON-RPC server: ' . $request->method, __METHOD__);
+        $this->socket->writeRequest($request);
     }
 
     /**
@@ -188,8 +133,25 @@ class Connection extends Component
     public function open(): void
     {
         $this->initSocket();
-        $this->socket->open();
-        $this->initConnection();
+        if ($this->socket->open()) {
+            $this->initConnection();
+        }
+    }
+
+    public function readResponse(): Response
+    {
+        $request = $this->request;
+        $this->request = null;
+        Yii::debug('Reading response from JSON-RPC server: ' . $request->method, __METHOD__);
+        $response = $this->socket->readResponse();
+        $response->validate($request);
+
+        return $response;
+    }
+
+    protected function setSocket(Socket $socket): void
+    {
+        $this->socket = $socket;
     }
 
     protected function initSocket(): void
@@ -212,48 +174,5 @@ class Connection extends Component
     protected function initConnection(): void
     {
         $this->trigger(self::EVENT_AFTER_OPEN);
-    }
-
-    /**
-     * Parse a JSON-RPC response
-     *
-     * @param string $id
-     *
-     * @return mixed jsonrpc response result
-     */
-    protected function processResponse(string $id)
-    {
-        $response = $this->socket->readResponse();
-        if ($response === false) {
-            throw new Exception('Failed to read from socket');
-        }
-        if (trim($response) === '') {
-            throw new Exception('No response received');
-        }
-        $response = Json::decode($response);
-        if ($response === null) {
-            throw new Exception('Invalid response decoding');
-        }
-        if (!isset($response['jsonrpc'])) {
-            $response['jsonrpc'] = self::SPEC_1_0;
-        }
-        foreach (['jsonrpc', 'result', 'error', 'result', 'id'] as $key) {
-            if (!array_key_exists($key, $response)) {
-                throw new Exception('Invalid response, not found key = {$key}' . PHP_EOL .
-                    var_export($response, true)
-                );
-            }
-        }
-        if ($response['id'] !== $id) {
-            throw new Exception("Invalid response id {$id} is not equals to {$response['id']}");
-        }
-        if ($response['jsonrpc'] !== $this->spec) {
-            throw new Exception("Invalid response version {$this->spec} is not equals to {$response['jsonrpc']}");
-        }
-        if (!empty($response['error'])) {
-            throw new Exception($response['error']);
-        }
-
-        return $response['result'];
     }
 }

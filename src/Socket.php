@@ -3,6 +3,7 @@
 namespace raoptimus\jsonrpc2;
 
 use Yii;
+use yii\helpers\Json;
 
 /**
  * This file is part of the raoptimus/yii2-jsonrpc2 library
@@ -31,7 +32,7 @@ class Socket
     /**
      * @var resource jsonrpc socket connection
      */
-    private $_socket;
+    private $socket;
 
     /**
      * Socket constructor.
@@ -48,16 +49,69 @@ class Socket
     }
 
     /**
+     * Closes the connection when this component is being serialized.
+     *
+     * @return array
+     */
+    public function __sleep()
+    {
+        $this->close();
+
+        return array_keys(get_object_vars($this));
+    }
+
+    /**
      *
      */
     public function close(): void
     {
-        if ($this->_socket === null) {
+        if ($this->socket === null) {
             return;
         }
         Yii::debug(self::INFO_ON_CLOSING . $this->connectionString, __METHOD__);
-        stream_socket_shutdown($this->_socket, STREAM_SHUT_RDWR);
-        $this->_socket = null;
+        stream_socket_shutdown($this->socket, STREAM_SHUT_RDWR);
+        $this->socket = null;
+    }
+
+    /**
+     * Establishes a connection.
+     * It does nothing if a connection has already been established.
+     */
+    public function open(): bool
+    {
+        if ($this->getIsActive()) {
+            return false;
+        }
+        Yii::debug(self::INFO_ON_OPENING . $this->connectionString, __METHOD__);
+        $socket = stream_socket_client(
+            $this->connectionString,
+            $errorNumber,
+            $errorDescription,
+            $this->connectionTimeout
+        );
+
+        if ($socket) {
+            if ($this->readWriteTimeout !== null) {
+                stream_set_timeout(
+                    $socket,
+                    $timeout = (int)$this->readWriteTimeout,
+                    (int)(($this->readWriteTimeout - $timeout) * 1000000)
+                );
+            }
+            $this->socket = $socket;
+
+            return true;
+        }
+
+        $extra = sprintf(
+            ' (%s): {%d} - {%s}',
+            $this->connectionString,
+            (int)$errorNumber,
+            $errorDescription
+        );
+
+        Yii::debug(self::ERROR_ON_CONNECTION . $extra);
+        throw new Exception(self::ERROR_ON_CONNECTION, $errorDescription, (int)$errorNumber);
     }
 
     /**
@@ -67,57 +121,44 @@ class Socket
      */
     public function getIsActive(): bool
     {
-        return $this->_socket !== null;
+        return $this->socket !== null && !stream_get_meta_data($this->socket)['timed_out'];
     }
 
-    /**
-     * Establishes a connection.
-     * It does nothing if a connection has already been established.
-     */
-    public function open(): void
+    public function writeRequest(Request $request): void
     {
-        if ($this->_socket !== null) {
-            return;
-        }
-        Yii::debug(self::INFO_ON_OPENING . $this->connectionString, __METHOD__);
-        $this->_socket = @stream_socket_client(
-            $this->connectionString,
-            $errorNumber,
-            $errorDescription,
-            $this->connectionTimeout
-        );
-        if ($this->_socket) {
-            if ($this->readWriteTimeout !== null) {
-                stream_set_timeout(
-                    $this->_socket,
-                    $timeout = (int)$this->readWriteTimeout,
-                    (int)(($this->readWriteTimeout - $timeout) * 1000000)
-                );
-            }
-        } else {
-            $extra = sprintf(' (%s): {%d} - {%s}',
-                $this->connectionString, (int)$errorNumber, $errorDescription);
-
-            Yii::debug(self::ERROR_ON_CONNECTION . $extra);
-            throw new Exception(self::ERROR_ON_CONNECTION, $errorDescription, (int)$errorNumber);
-        }
+        $this->writeRequestBody($request->encode());
     }
 
-    /**
-     * @param string $request
-     */
-    public function writeRequest(string $request): void
+    public function readResponse(): Response
     {
-        fwrite($this->_socket, $request);
-        fwrite($this->_socket, "\n");
-        fflush($this->_socket);
+        $responseBody = $this->readResponseBody();
+        if ($responseBody === false) {
+            throw new Exception('Failed to read from socket');
+        }
+        if (trim($responseBody) === '') {
+            throw new Exception('No response received');
+        }
+
+        $responseData = Json::decode($responseBody);
+        if ($responseData === null) {
+            throw new Exception('Invalid response decoding');
+        }
+
+        return new Response($responseData);
+    }
+
+    protected function writeRequestBody(string $content): void
+    {
+        fwrite($this->socket, $content);
+        fwrite($this->socket, "\n");
+        fflush($this->socket);
     }
 
     /**
      * @return bool|string
      */
-    public function readResponse()
+    protected function readResponseBody()
     {
-        return fgets($this->_socket);
+        return fgets($this->socket);
     }
 }
