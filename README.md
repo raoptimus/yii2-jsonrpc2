@@ -5,7 +5,7 @@
 [![Build Status](https://travis-ci.com/raoptimus/yii2-jsonrpc2.svg?branch=master)](https://travis-ci.com/raoptimus/yii2-jsonrpc2)
 
 # yii2-jsonrpc2
-Json RPC 1.0 and 2.0 protocol for Yii2
+Json RPC client 1.0 and 2.0 versions for Yii2
 
 ## Installation
 
