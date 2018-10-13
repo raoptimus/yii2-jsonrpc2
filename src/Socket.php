@@ -41,11 +41,11 @@ class Socket
      * @param float|null $connectionTimeout Number of seconds until the connect() system call
      * @param float|null $readWriteTimeout Number of seconds period on a stream
      */
-    public function __construct(string $connectionStr, ?float $connectionTimeout, ?float $readWriteTimeout)
+    public function __construct(string $connectionStr, ?float $connectionTimeout = null, ?float $readWriteTimeout = null)
     {
         $this->connectionString = $connectionStr;
         $this->connectionTimeout = $connectionTimeout ?? ini_get('default_socket_timeout');
-        $this->readWriteTimeout = $readWriteTimeout;
+        $this->readWriteTimeout = $readWriteTimeout ?? $this->connectionTimeout;
     }
 
     /**
@@ -83,7 +83,7 @@ class Socket
             return false;
         }
         Yii::debug(self::INFO_ON_OPENING . $this->connectionString, __METHOD__);
-        $socket = stream_socket_client(
+        $socket = @stream_socket_client(
             $this->connectionString,
             $errorNumber,
             $errorDescription,
@@ -111,7 +111,7 @@ class Socket
         );
 
         Yii::debug(self::ERROR_ON_CONNECTION . $extra);
-        throw new Exception(self::ERROR_ON_CONNECTION, $errorDescription, (int)$errorNumber);
+        throw new Exception(self::ERROR_ON_CONNECTION . $errorDescription, (int)$errorNumber);
     }
 
     /**
