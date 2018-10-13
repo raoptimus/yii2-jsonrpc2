@@ -49,9 +49,9 @@ class Connection extends Component
      */
     public $dataTimeout;
     /**
-     * @var string
+     * @var string Protocol version. Default 2.0
      */
-    public $spec = self::SPEC_1_0;
+    public $spec = self::SPEC_2_0;
     /**
      * @var Socket
      */

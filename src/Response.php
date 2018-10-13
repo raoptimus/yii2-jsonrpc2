@@ -33,7 +33,7 @@ class Response extends BaseObject
         if ($this->id !== $request->id) {
             throw new Exception('Invalid response. Id ' . $request->id . ' is not equals to ' . $this->id);
         }
-        if ($this->jsonrpc !== $request->jsonrpc) {
+        if ($this->jsonrpc && $this->jsonrpc !== $request->jsonrpc) {
             throw new Exception(
                 'Invalid response. Version ' . $request->jsonrpc . ' is not equals to ' . $this->jsonrpc
             );
