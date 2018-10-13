@@ -49,5 +49,9 @@ Use connection
 $rpc = \Yii::$app->get('jsonrpc');
 $method = "SomeMethodName";
 $param = "SomeEnterParam";
-$result = $rpc->sendRequest($method, [$param]);
+$request = $rpc->createRequest($method, [$param]);
+$rpc->sendRequest($request);
+$result = $rpc->readResponse()->result;
+//or
+$result = $rpc->$method($param);
 ```
